@@ -4,4 +4,46 @@
     - name: show message
       debug: 
         msg: "ah, its ok"
+    
+    - name: ensure disk partition exists
+      parted:
+        device: /dev/sdb
+        number: 1
+        state: present
 
+    - name: ensure filesustem on partition
+      filesystem:
+       fstype: xfs
+       dev: /dev/sdb1
+
+    - name: ensure partition mounted
+      mount:
+        path: /mnt
+        src: /dev/sdb1
+        fstype: xfs
+        state: mounted
+
+    - name: install glusterfs
+      dnf:
+        name: 
+          - glusterfs-server
+        state: latest
+
+    - name: ensure gluster started
+      systemd:
+        name: glusterd
+        enabled: yes
+        state: started
+      loop:
+        - glusted
+        - glusterfsd
+        - glusterfssharedstorage
+
+    - name: ensure firewall opened
+      firewalld:
+        zone: public
+        port: "{{item}}"
+        permanent: yes 
+        state: enabled
+      loop:
+        - 24007-24009/tcp
