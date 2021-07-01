@@ -1,10 +1,24 @@
 - hosts: all
   become: yes
+  vars: 
+    allnodes: 
+      - node1.vm.net
+      - node2.vm.net
+      - node3.vm.net
   tasks:
     - name: show message
       debug: 
         msg: "ah, its ok"
     
+    - name: set selinux policy
+      selinux:
+        state: disabled
+      register: selinux_res
+
+    - name: reboot 
+      reboot:
+      when: selinux_res.reboot_required
+
     - name: ensure disk partition exists
       parted:
         device: /dev/sdb
@@ -33,7 +47,7 @@
       dnf:
         name: 
           - glusterfs-server
-        state: latest
+        state: present
 
     - name: ensure gluster started
       systemd:
@@ -43,31 +57,42 @@
       loop:
         - glusterd
         - glusterfsd
-        - glusterfssharedstorage
     
     - name: ensure peers connected
       gluster.gluster.gluster_peer:
         state: present
-        nodes:
-          - node1.vm.net
-          - node2.vm.net
-          - node3.vm.net
+        nodes: "{{ allnodes }}"
+      when: "inventory_hostname.startswith('node1')"
+      run_once: true
 
     - name: ensure bricks dirs
       file:
         path: "{{ item }}"
         state: directory
+        recurse: yes
+        follow: no
       loop:
-        - /mnt/brick  
+        - /mnt/brick/gv1
+        - /media/gv1 
+      run_once: true
 
     - name: ensure volume created
       gluster.gluster.gluster_volume:
         state: present
         name: gv1
-        bricks: /mnt/brick
-        rebalance: yes
-        cluster:
-          - node1.vm.net
-          - node2.vm.net
-          - node3.vm.net
+        bricks: /mnt/brick/gv1
+        replicas: 3
+        start_on_create: yes
+        host: "{{ inventory_hostname }}.vm.net"
+        cluster: "{{ allnodes }}"
+        force: yes
+      when: "inventory_hostname.startswith('node1')"
       run_once: true
+
+    - name: mount gluster gv1
+      mount:
+        path: /media/gv1
+        src: "{{ inventory_hostname }}.vm.net:/mnt/brick"
+        fstype: glusterfs
+        state: mounted
+      tags: ["never"]

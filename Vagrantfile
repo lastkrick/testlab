@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "virtualbox" do |vb|
     vb.memory = "1024"
-    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-vms"]
+    vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
   end
 
   config.vm.provision "shell", inline: "echo run-on-all"
@@ -30,10 +30,13 @@ Vagrant.configure("2") do |config|
       vb.vm.hostname = "node#{i}.local.net"
       disk_filename = "#{disk_filename_prefix}#{i}#{disk_filename_postfix}"
       vb.vm.disk :disk, size: "4GB", name: disk_filename
+
+      if (i==number_of_nodes)
+        vb.vm.provision "ansible" do |ans| 
+          ans.playbook = "playbook.yml"
+          ans.limit = "all"
+        end 
+      end
     end
-  end
-  config.vm.provision "ansible" do |ans| 
-    ans.playbook = "playbook.yml"
-    ans.limit = "all"
   end
 end
