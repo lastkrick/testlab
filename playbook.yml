@@ -23,6 +23,12 @@
         fstype: xfs
         state: mounted
 
+    - name: ensure firewall stopped
+      systemd:
+        name: firewalld
+        enabled: no
+        state: stopped
+
     - name: install glusterfs
       dnf:
         name: 
@@ -31,19 +37,37 @@
 
     - name: ensure gluster started
       systemd:
-        name: glusterd
+        name: "{{ item }}"
         enabled: yes
         state: started
       loop:
-        - glusted
+        - glusterd
         - glusterfsd
         - glusterfssharedstorage
+    
+    - name: ensure peers connected
+      gluster.gluster.gluster_peer:
+        state: present
+        nodes:
+          - node1.vm.net
+          - node2.vm.net
+          - node3.vm.net
 
-    - name: ensure firewall opened
-      firewalld:
-        zone: public
-        port: "{{item}}"
-        permanent: yes 
-        state: enabled
+    - name: ensure bricks dirs
+      file:
+        path: "{{ item }}"
+        state: directory
       loop:
-        - 24007-24009/tcp
+        - /mnt/brick  
+
+    - name: ensure volume created
+      gluster.gluster.gluster_volume:
+        state: present
+        name: gv1
+        bricks: /mnt/brick
+        rebalance: yes
+        cluster:
+          - node1.vm.net
+          - node2.vm.net
+          - node3.vm.net
+      run_once: true
