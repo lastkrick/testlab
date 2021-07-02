@@ -5,6 +5,10 @@
       - node1.vm.net
       - node2.vm.net
       - node3.vm.net
+    allips:
+      - 192.168.24.1
+      - 192.168.24.2
+      - 192.168.24.3
   tasks:
     - name: show message
       debug: 
@@ -49,6 +53,12 @@
           - glusterfs-server
         state: present
 
+    - name: ensure gluster configured
+      lineinfile:
+        path: /etc/glusterfs/glusterd.vol
+        insertafter: "    option transport.socket.listen-port.*"
+        line: "    option transport.socket.bind-address {{ ansible_eth1.ipv4.address }}"
+
     - name: ensure gluster started
       systemd:
         name: "{{ item }}"
@@ -56,14 +66,14 @@
         state: started
       loop:
         - glusterd
-        - glusterfsd
+        #- glusterfsd
     
     - name: ensure peers connected
       gluster.gluster.gluster_peer:
-        state: present
         nodes: "{{ allnodes }}"
       when: "inventory_hostname.startswith('node1')"
       run_once: true
+      tags: ["never"]
 
     - name: ensure bricks dirs
       file:
@@ -74,20 +84,32 @@
       loop:
         - /mnt/brick/gv1
         - /media/gv1 
-      run_once: true
 
     - name: ensure volume created
       gluster.gluster.gluster_volume:
         state: present
-        name: gv1
+        volume: gv1
         bricks: /mnt/brick/gv1
-        replicas: 3
-        start_on_create: yes
-        host: "{{ inventory_hostname }}.vm.net"
         cluster: "{{ allnodes }}"
+        transport: 'tcp'
+        replicas: 3
         force: yes
-      when: "inventory_hostname.startswith('node1')"
       run_once: true
+      tags: ["never"]
+
+    - name: ensure volume configured
+      gluster.gluster.gluster_volume:
+        state: present
+        name: gv1
+        options: 
+          performance.cache-size: "128MB"
+      tags: ["never"]
+
+    - name: ensure volume started
+      gluster.gluster.gluster_volume:
+        state: started
+        name: gv1
+      tags: ["never"]
 
     - name: mount gluster gv1
       mount:
@@ -95,4 +117,5 @@
         src: "{{ inventory_hostname }}.vm.net:/mnt/brick"
         fstype: glusterfs
         state: mounted
+        opts: "_netdev,fetch-attempts=10"
       tags: ["never"]
