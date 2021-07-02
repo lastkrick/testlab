@@ -1,0 +1,72 @@
+- name: install glusterfs
+  dnf:
+    name:
+      - glusterfs-server
+    state: present
+
+- name: ensure gluster configured
+  lineinfile:
+    path: /etc/glusterfs/glusterd.vol
+    insertafter: "    option transport.socket.listen-port.*"
+    line: "    option transport.socket.bind-address {{ ansible_eth1.ipv4.address }}"
+
+- name: ensure gluster started
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  loop:
+    - glusterd
+    #- glusterfsd
+
+- name: ensure peers connected
+  gluster.gluster.gluster_peer:
+    nodes: "{{ allnodes }}"
+  when: "inventory_hostname.startswith('node1')"
+  run_once: true
+  tags: [ "never" ]
+
+- name: ensure bricks dirs
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
+    follow: no
+  loop:
+    - /mnt/brick/gv1
+    - /media/gv1
+
+- name: ensure volume created
+  gluster.gluster.gluster_volume:
+    state: present
+    volume: gv1
+    bricks: /mnt/brick/gv1
+    cluster: "{{ allnodes }}"
+    transport: 'tcp'
+    replicas: 3
+    force: yes
+  run_once: true
+  tags: [ "never" ]
+
+- name: ensure volume configured
+  gluster.gluster.gluster_volume:
+    state: present
+    name: gv1
+    options:
+      performance.cache-size: "128MB"
+  tags: [ "never" ]
+
+- name: ensure volume started
+  gluster.gluster.gluster_volume:
+    state: started
+    name: gv1
+  tags: [ "never" ]
+
+- name: mount gluster gv1
+  mount:
+    path: /media/gv1
+    src: "{{ inventory_hostname }}.vm.net:/mnt/brick"
+    fstype: glusterfs
+    state: mounted
+    opts: "_netdev,fetch-attempts=10"
+  tags: [ "never" ]

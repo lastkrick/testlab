@@ -1,0 +1,37 @@
+---
+- name: show message
+  debug:
+    msg: "basic role started"
+
+- name: set selinux policy
+  selinux:
+    state: disabled
+  register: selinux_res
+
+- name: reboot
+  reboot:
+  when: selinux_res.reboot_required
+
+- name: ensure disk partition exists
+  parted:
+    device: /dev/sdb
+    number: 1
+    state: present
+
+- name: ensure filesustem on partition
+  filesystem:
+   fstype: xfs
+   dev: /dev/sdb1
+
+- name: ensure partition mounted
+  mount:
+    path: /mnt
+    src: /dev/sdb1
+    fstype: xfs
+    state: mounted
+
+- name: ensure firewall stopped
+  systemd:
+    name: firewalld
+    enabled: no
+    state: stopped
