@@ -1,0 +1,14 @@
+$TTL         1M
+$ORIGIN      vm.net.
+
+@        3600 IN SOA node1.vm.net. noc.vm.net. 2021070700 7200 3600 1209600 3600
+         3600 IN NS node1.vm.net.
+         3600 IN NS node2.vm.net.
+         3600 IN NS node3.vm.net.
+
+node1         IN  A      192.168.24.1
+node2         IN  A      192.168.24.2
+node3         IN  A      192.168.24.3
+www           IN  A      192.168.0.14
+mail          IN  A      192.168.0.15
+imap          IN  CNAME  mail

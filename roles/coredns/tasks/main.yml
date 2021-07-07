@@ -1,0 +1,33 @@
+r name: ensurrrfystemd-resolved disabled
+  systemd:
+    state: stopped
+    enabled: false
+    name: systemd-resolved
+
+- name: ensure dns configured
+  template:
+    dest: /etc/resolv.conf
+    src: resolvconf.j2
+
+- name: download coredns binary
+  unarchive:
+    src: "https://github.com/coredns/coredns/releases/download/v1.8.4/coredns_1.8.4_linux_amd64.tgz"
+    dest: /usr/local/bin
+    remote_src: yes
+    creates: /usr/local/bin/coredns
+
+- name: ensure bind checkzone installed
+  dnf:
+    state: present
+    name: bind-utils
+
+- name: ensure coredns config
+  template:
+    dest: /etc/coredns
+    src: coredns.j2
+
+- name: ensure zone file
+  template:
+    dest: /etc/coredns_vm.net.zone
+    src: vm.net.zone.j2
+    validate: named-checkzone vm.net %s

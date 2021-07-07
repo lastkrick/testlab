@@ -1,0 +1,14 @@
+[Unit]
+Description=Network Name Resolution
+After=systemd-sysusers.service systemd-networkd.service
+Before=network.target nss-lookup.target shutdown.target
+Conflicts=shutdown.target
+Want=nss-lookup.target
+
+[Service]
+ExecStart=!!/usr/local/bin/coredns
+Type=notify
+
+[Install]
+WantedBy=multi-user.target
+
