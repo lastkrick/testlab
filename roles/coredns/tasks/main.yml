@@ -1,4 +1,4 @@
-r name: ensurrrfystemd-resolved disabled
+- name: ensure systemd-resolved disabled
   systemd:
     state: stopped
     enabled: false
